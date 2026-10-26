@@ -112,7 +112,7 @@ internal fun RecordEditor(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (record == null) "新的开始" else "编辑记日",
+                        if (record == null) "新的开始" else "编辑此日期！",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -261,7 +261,7 @@ internal fun RecordEditor(
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text("删除这张记日", modifier = Modifier.padding(start = 6.dp))
+                    Text("不需要了！", modifier = Modifier.padding(start = 6.dp))
                 }
             }
         }

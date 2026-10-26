@@ -122,7 +122,7 @@ fun DaymarkApp(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                "我的记日",
+                                "列表",
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -170,7 +170,7 @@ fun DaymarkApp(
     if (deletingRecord != null) {
         AlertDialog(
             onDismissRequest = { deletingId = null },
-            title = { Text("删除这张记日？") },
+            title = { Text("删除这个日期？") },
             text = { Text("“${deletingRecord.title}”将被删除，桌面上的对应小组件也会更新。") },
             confirmButton = {
                 TextButton(onClick = {
@@ -202,7 +202,7 @@ private fun HomeHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "记日",
+                text = "日期记录",
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = (-1).sp,
@@ -302,7 +302,7 @@ private fun DayRecordCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    "记日 · ${(index + 1).toString().padStart(2, '0')}",
+                    " ${(index + 1).toString().padStart(2, '0')}",
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.content.copy(alpha = 0.72f),
                 )

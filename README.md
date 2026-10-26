@@ -1,6 +1,6 @@
-# 记日 · Daymark
+# 倒数日 · Daymark
 
-Kotlin + Jetpack Compose + Material 3 的本地记日应用。参考相邻 ShizukuFTP 的大圆角、柔和色调与壁纸配色方向。
+Kotlin + Jetpack Compose + Material 3 的日期记录应用。参考相邻 ShizukuFTP 的大圆角、柔和色调与壁纸配色方向。
 
 - 新建、编辑、删除事项，选择起始日期与卡片色调。
 - App 和桌面卡片居中显示「距 xxx 已经开始 / XXX 天」。未来事项显示「距 xxx 还有」。
@@ -17,6 +17,8 @@ Kotlin + Jetpack Compose + Material 3 的本地记日应用。参考相邻 Shizu
 ## 桌面组件
 
 在 App 中点击桌面组件入口，选择尺寸后按桌面提示添加，再点按组件选择事项。也可长按桌面，从「小组件 → 记日」中添加并选择事项。修改事项会同步组件；删除事项后，相关组件显示重新选择提示。桌面网格由启动器决定，实际尺寸可随启动器调整。
+
+~~gemini办事纯属在敷衍我....~~
 
 ## 构建
 

@@ -107,7 +107,7 @@ internal fun WidgetPinDialog(
                 }
                 if (status != WidgetPinStatus.ADDED) {
                     Text(
-                        "没有出现弹窗，或更习惯手动添加？\n长按桌面空白处 → 小组件 / 插件 → 记日，选择尺寸后再选日子。ColorOS 的入口名称会随桌面版本变化。",
+                        "没有出现弹窗，或更习惯手动添加？\n长按桌面空白处 → 小组件 / 插件 → 正数倒数日，选择尺寸后再选日子。ColorOS 的入口名称会随桌面版本变化。",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     TextButton(onClick = { openHome(context) }) { Text("前往桌面") }
