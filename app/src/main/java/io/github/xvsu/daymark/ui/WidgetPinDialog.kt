@@ -1,8 +1,8 @@
 package io.github.xvsu.daymark.ui
 
-import android.content.Context
-import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.content.SharedPreferences
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,10 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import io.github.xvsu.daymark.R
 import io.github.xvsu.daymark.data.DayRecord
 import io.github.xvsu.daymark.widget.DayWidgetSize
+import io.github.xvsu.daymark.widget.ColorOsWidgetEntry
 import io.github.xvsu.daymark.widget.WidgetPinRequests
 import io.github.xvsu.daymark.widget.WidgetPinStatus
 
@@ -44,6 +47,31 @@ internal fun WidgetPinDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val desktopEntry = remember(context) { ColorOsWidgetEntry.intent(context) }
+    if (desktopEntry != null) {
+        val appName = stringResource(R.string.app_name)
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("ColorOS 桌面组件") },
+            text = {
+                Text("打开系统的「插件」面板，找到「$appName」，选择组件尺寸后，再选择要显示的日期。")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    try {
+                        context.startActivity(desktopEntry)
+                        requests.clearStatus()
+                        onDismiss()
+                    } catch (_: ActivityNotFoundException) {
+                        // The default home can be replaced while this dialog is open.
+                        Toast.makeText(context, "桌面已切换，请重新打开组件入口", Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("打开桌面组件") }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        )
+        return
+    }
     var recordId by rememberSaveable { mutableStateOf(records.firstOrNull()?.id) }
     var sizeName by rememberSaveable { mutableStateOf(DayWidgetSize.COMPACT.name) }
     var status by remember { mutableStateOf(requests.status()) }
@@ -102,15 +130,8 @@ internal fun WidgetPinDialog(
                         WidgetPinStatus.ADDED -> "已添加到桌面，卡片已经关联所选日子。"
                         WidgetPinStatus.REQUESTED -> "已向桌面发出申请，请在系统弹窗中确认添加。"
                         WidgetPinStatus.RECORD_REMOVED -> "所选日子已被删除。若组件已经添加，请点按组件重新选择。"
-                        else -> "当前桌面未接受自动添加，请按下方步骤手动添加。"
+                        else -> "在桌面组件中选择尺寸，再选择要显示的日子。"
                     })
-                }
-                if (status != WidgetPinStatus.ADDED) {
-                    Text(
-                        "没有出现弹窗，或更习惯手动添加？\n长按桌面空白处 → 小组件 / 插件 → 正数倒数日，选择尺寸后再选日子。ColorOS 的入口名称会随桌面版本变化。",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    TextButton(onClick = { openHome(context) }) { Text("前往桌面") }
                 }
             }
         },
@@ -131,6 +152,3 @@ internal fun WidgetPinDialog(
     )
 }
 
-private fun openHome(context: Context) {
-    context.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-}
