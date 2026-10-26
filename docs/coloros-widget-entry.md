@@ -3,7 +3,8 @@
 已在 PLK110 的 Oplus Launcher 16.3.16 / Android 16 上验证。
 
 入口只在默认桌面为 `com.android.launcher/com.android.launcher.Launcher` 且声明
-`com.android.launcher.support.card_widget_entry_integration` 能力时提供。
+`com.android.launcher.support.card_widget_entry_integration` 能力、且桌面版本号在已验证集合中时提供。
+目前验证版本为 16.3.16（versionCode 160030016）。其他版本自动使用 Android 标准申请。
 
 App 向导出的 Launcher Activity 发送显式 `VIEW` Intent，携带
 `state=ToggleBar_widget`。系统桌面的 `ToggleBarUtils.resolveStateByNewIntent`
@@ -16,4 +17,6 @@ App 向导出的 Launcher Activity 发送显式 `VIEW` Intent，携带
 先确认 App 窗口在前台，再确认系统「插件」面板出现并保持显示，以避免旧桌面窗口
 或一闪而过的面板导致误判。
 
-此入口依据实际桌面版本确认。桌面更换为其他实现时，App 继续使用标准组件申请流程。
+专用入口无法启动或被系统拒绝时，自动切换为标准组件申请流程；也可手动选择
+「系统标准添加」。系统没有向普通 App 提供可靠的外部面板显示确认回调，所以不会
+通过定时猜测成功，也不会要求无障碍或 root 来读取其他应用的界面。

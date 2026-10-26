@@ -2,7 +2,6 @@ package io.github.xvsu.daymark.ui
 
 import android.content.ActivityNotFoundException
 import android.content.SharedPreferences
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,7 +47,8 @@ internal fun WidgetPinDialog(
 ) {
     val context = LocalContext.current
     val desktopEntry = remember(context) { ColorOsWidgetEntry.intent(context) }
-    if (desktopEntry != null) {
+    var useSystemFlow by rememberSaveable { mutableStateOf(false) }
+    if (desktopEntry != null && !useSystemFlow) {
         val appName = stringResource(R.string.app_name)
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -64,11 +64,21 @@ internal fun WidgetPinDialog(
                         onDismiss()
                     } catch (_: ActivityNotFoundException) {
                         // The default home can be replaced while this dialog is open.
-                        Toast.makeText(context, "桌面已切换，请重新打开组件入口", Toast.LENGTH_SHORT).show()
+                        requests.clearStatus()
+                        useSystemFlow = true
+                    } catch (_: SecurityException) {
+                        // A launcher update or policy may revoke access to its private entry.
+                        requests.clearStatus()
+                        useSystemFlow = true
                     }
                 }) { Text("打开桌面组件") }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+            dismissButton = {
+                TextButton(onClick = {
+                    requests.clearStatus()
+                    useSystemFlow = true
+                }) { Text("系统标准添加") }
+            },
         )
         return
     }
