@@ -432,7 +432,7 @@ private fun WidgetInvitation(onAddWidget: () -> Unit) {
                 Text("把日子放在桌面", style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "2 × 2 / 3 × 2 小组件",
+                    "2 × 1 / 2 × 2 / 3 × 2 小组件",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

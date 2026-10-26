@@ -34,7 +34,7 @@ class DayWidgetIntegrationTest {
     private val context = instrumentation.targetContext
 
     @Test
-    fun twoWidgetSizesKeepIndependentRecordsAndRefreshAfterEditingAndDeleting() {
+    fun threeWidgetSizesKeepIndependentRecordsAndRefreshAfterEditingAndDeleting() {
         val manager = AppWidgetManager.getInstance(context)
         val store = DayRecordStore(context)
         val bindings = WidgetBindings(context)
@@ -45,6 +45,9 @@ class DayWidgetIntegrationTest {
         val wideRecord = DayRecord(
             UUID.randomUUID().toString(), "组件验证 · 横向", today.plusDays(6), CardTone.SAGE,
         )
+        val compactRecord = DayRecord(
+            UUID.randomUUID().toString(), "组件验证 · 紧凑", today.minusDays(12345), CardTone.SAGE,
+        )
         // A private host for this run; do not touch any launcher or existing widget IDs.
         val hostId = UUID.randomUUID().hashCode() and Int.MAX_VALUE
         val host = onMain { AppWidgetHost(context, hostId) }
@@ -53,12 +56,15 @@ class DayWidgetIntegrationTest {
         try {
             store.save(squareRecord)
             store.save(wideRecord)
+            store.save(compactRecord)
             assertEquals(squareRecord, DayRecordStore(context).find(squareRecord.id))
             assertEquals(wideRecord, DayRecordStore(context).find(wideRecord.id))
+            assertEquals(compactRecord, DayRecordStore(context).find(compactRecord.id))
 
             onMain { host.startListening() }
             val squareId = host.allocateAppWidgetId().also(allocatedIds::add)
             val wideId = host.allocateAppWidgetId().also(allocatedIds::add)
+            val compactId = host.allocateAppWidgetId().also(allocatedIds::add)
             assertTrue(
                 "The system must allow binding the square provider to the test host",
                 manager.bindAppWidgetIdIfAllowed(
@@ -71,10 +77,18 @@ class DayWidgetIntegrationTest {
                     wideId, ComponentName(context, WideDayWidgetProvider::class.java),
                 ),
             )
+            assertTrue(
+                "The system must allow binding the compact provider to the test host",
+                manager.bindAppWidgetIdIfAllowed(
+                    compactId, ComponentName(context, CompactDayWidgetProvider::class.java),
+                ),
+            )
             bindings.bind(squareId, squareRecord.id)
             bindings.bind(wideId, wideRecord.id)
+            bindings.bind(compactId, compactRecord.id)
             manager.updateAppWidgetOptions(squareId, widgetOptions(180, 180))
             manager.updateAppWidgetOptions(wideId, widgetOptions(270, 180))
+            manager.updateAppWidgetOptions(compactId, widgetOptions(180, 72))
 
             val squareView = onMain {
                 host.createView(context, squareId, manager.getAppWidgetInfo(squareId))
@@ -82,20 +96,29 @@ class DayWidgetIntegrationTest {
             val wideView = onMain {
                 host.createView(context, wideId, manager.getAppWidgetInfo(wideId))
             }
+            val compactView = onMain {
+                host.createView(context, compactId, manager.getAppWidgetInfo(compactId))
+            }
             DayWidgetUpdates.update(context, squareId)
             DayWidgetUpdates.update(context, wideId)
+            DayWidgetUpdates.update(context, compactId)
 
-            awaitView("Both widget sizes should render their own record") {
+            awaitView("All three widget sizes should render their own record") {
                 layout(squareView, 180, 180)
                 layout(wideView, 270, 180)
-                showsRecord(squareView, squareRecord) && showsRecord(wideView, wideRecord)
+                layout(compactView, 180, 72)
+                showsRecord(squareView, squareRecord) && showsRecord(wideView, wideRecord) &&
+                    showsRecord(compactView, compactRecord)
             }
             onMain {
                 assertEquals(squareRecord.id, bindings.recordId(squareId))
                 assertEquals(wideRecord.id, bindings.recordId(wideId))
+                assertEquals(compactRecord.id, bindings.recordId(compactId))
                 assertTrue(squareView.width < wideView.width)
                 assertTrue(squareView.findViewById<View>(R.id.widget_count).height > 0)
                 assertTrue(wideView.findViewById<View>(R.id.widget_count).height > 0)
+                assertTrue(compactView.height < squareView.height)
+                assertCompactTextFits(compactView)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     assertEquals(
                         context.getColor(R.color.widget_dynamic_container),
@@ -108,38 +131,77 @@ class DayWidgetIntegrationTest {
             val editedSquare = squareRecord.copy(
                 title = "组件验证 · 已编辑", startDate = today.minusDays(456), tone = CardTone.CLAY,
             )
+            val editedCompact = compactRecord.copy(
+                title = "2 × 1 紧凑组件 · 已编辑的长标题", startDate = today.minusDays(987654),
+                tone = CardTone.LAVENDER,
+            )
             store.save(editedSquare)
+            store.save(editedCompact)
             val reloadedStore = DayRecordStore(context)
             assertEquals(editedSquare, reloadedStore.find(squareRecord.id))
             assertEquals(1, reloadedStore.getAll().count { it.id == squareRecord.id })
             assertEquals(wideRecord, reloadedStore.find(wideRecord.id))
-            DayWidgetUpdates.update(context, squareId)
-            DayWidgetUpdates.update(context, wideId)
+            assertEquals(editedCompact, reloadedStore.find(compactRecord.id))
+            // Exercise the shared refresh entry point, including the newly registered size.
+            DayWidgetUpdates.updateAll(context)
             awaitView("Editing a SAGE widget must replace its text and background tint") {
                 layout(squareView, 180, 180)
                 layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
                 val squareBackground = squareView.findViewById<View>(android.R.id.background)
                 val tintUpdated = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                     squareBackground?.backgroundTintList?.defaultColor == context.getColor(R.color.widget_clay)
-                showsRecord(squareView, editedSquare) && showsRecord(wideView, wideRecord) && tintUpdated
+                val compactTintUpdated = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                    compactView.findViewById<View>(android.R.id.background)?.backgroundTintList?.defaultColor ==
+                    context.getColor(R.color.widget_lavender)
+                showsRecord(squareView, editedSquare) && showsRecord(wideView, wideRecord) &&
+                    showsRecord(compactView, editedCompact) && tintUpdated && compactTintUpdated
+            }
+
+            // Provider dimensions describe its content; AppWidgetHostView adds launcher padding.
+            // Six-digit counts and a long title must fit even at the declared 110 × 40 dp minimum.
+            manager.updateAppWidgetOptions(compactId, widgetOptions(110, 40))
+            DayWidgetUpdates.update(context, compactId)
+            awaitView("The compact widget must apply the minimum-size typography") {
+                layout(compactView, 110, 40)
+                val count = compactView.findViewById<TextView>(R.id.widget_count)
+                showsRecord(compactView, editedCompact) && count != null &&
+                    count.textSize / context.resources.displayMetrics.scaledDensity < 18f
+            }
+            onMain { assertCompactTextFits(compactView) }
+
+            manager.updateAppWidgetOptions(compactId, widgetOptions(180, 72))
+            DayWidgetUpdates.update(context, compactId)
+            awaitView("Resizing the compact widget must restore its larger count") {
+                layout(compactView, 180, 72)
+                val count = compactView.findViewById<TextView>(R.id.widget_count)
+                showsRecord(compactView, editedCompact) && count != null &&
+                    count.textSize / context.resources.displayMetrics.scaledDensity > 18f
             }
             onMain {
+                assertCompactTextFits(compactView)
                 savePreview(squareView, "widget-square-integration.png")
                 savePreview(wideView, "widget-wide-integration.png")
+                savePreview(compactView, "widget-compact-integration.png")
             }
 
             store.delete(squareRecord.id)
-            DayWidgetUpdates.update(context, squareId)
-            DayWidgetUpdates.update(context, wideId)
+            store.delete(compactRecord.id)
+            DayWidgetUpdates.updateAll(context)
             awaitView("Deleting a record must show selection guidance without changing other widgets") {
                 layout(squareView, 180, 180)
                 layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
                 text(squareView, R.id.widget_headline) == "这张卡片已删除" &&
                     text(squareView, R.id.widget_date) == "点击选择桌面卡片" &&
                     squareView.findViewById<View>(R.id.widget_count_row)?.visibility == View.GONE &&
+                    text(compactView, R.id.widget_headline) == "这张卡片已删除" &&
+                    compactView.findViewById<View>(R.id.widget_count_row)?.visibility == View.GONE &&
+                    compactView.findViewById<View>(R.id.widget_date)?.visibility == View.GONE &&
                     showsRecord(wideView, wideRecord)
             }
             assertEquals(null, DayRecordStore(context).find(squareRecord.id))
+            assertEquals(null, DayRecordStore(context).find(compactRecord.id))
             assertEquals(wideRecord, DayRecordStore(context).find(wideRecord.id))
         } finally {
             // Only remove IDs and records allocated above, preserving any real user data.
@@ -156,6 +218,7 @@ class DayWidgetIntegrationTest {
                 try {
                     store.delete(squareRecord.id)
                     store.delete(wideRecord.id)
+                    store.delete(compactRecord.id)
                     // Instrumentation may end without an Activity stop to drain pending writes.
                     // Flush the test cleanup before Android terminates the instrumented process.
                     assertTrue(context.getSharedPreferences("day_records", 0).edit().commit())
@@ -186,13 +249,35 @@ class DayWidgetIntegrationTest {
     /** Call only on the main thread, as a launcher would measure its hosted views. */
     private fun layout(view: View, widthDp: Int, heightDp: Int) {
         val density = context.resources.displayMetrics.density
-        val width = (widthDp * density).toInt()
-        val height = (heightDp * density).toInt()
+        val width = (widthDp * density).toInt() + view.paddingLeft + view.paddingRight
+        val height = (heightDp * density).toInt() + view.paddingTop + view.paddingBottom
         view.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
         )
         view.layout(0, 0, width, height)
+    }
+
+    private fun assertCompactTextFits(view: AppWidgetHostView) {
+        val background = view.findViewById<View>(android.R.id.background)
+        assertEquals(View.GONE, view.findViewById<View>(R.id.widget_date).visibility)
+        val title = view.findViewById<TextView>(R.id.widget_headline)
+        val row = view.findViewById<View>(R.id.widget_count_row)
+        assertTrue("The compact title must stay inside the card", title.top >= background.paddingTop)
+        assertTrue(
+            "The compact count row must stay inside the card",
+            row.bottom <= background.height - background.paddingBottom,
+        )
+        listOf(R.id.widget_headline, R.id.widget_count, R.id.widget_unit).forEach { id ->
+            val textView = view.findViewById<TextView>(id)
+            assertTrue("Compact text must have one visible line", textView.layout.lineCount == 1)
+            assertTrue("Compact text must not be vertically clipped", textView.layout.height <= textView.height)
+            if (id != R.id.widget_headline) {
+                assertTrue("The day count and unit must not be truncated", textView.layout.getEllipsisCount(0) == 0)
+                assertTrue("The day count and unit must fit their width", textView.layout.getLineWidth(0) <= textView.width)
+                assertTrue("The day count and unit must stay in the row", textView.right <= row.width)
+            }
+        }
     }
 
     private fun awaitView(message: String, condition: () -> Boolean) {

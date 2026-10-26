@@ -36,6 +36,7 @@ import io.github.xvsu.daymark.data.PoetryViewModel
 import io.github.xvsu.daymark.ui.DaymarkApp
 import io.github.xvsu.daymark.ui.DaymarkTheme
 import io.github.xvsu.daymark.widget.DayWidgetUpdates
+import io.github.xvsu.daymark.widget.CompactDayWidgetProvider
 import io.github.xvsu.daymark.widget.SquareDayWidgetProvider
 import io.github.xvsu.daymark.widget.WideDayWidgetProvider
 import java.time.LocalDate
@@ -89,6 +90,13 @@ class MainActivity : ComponentActivity() {
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("选择组件尺寸（宽 × 高），添加后点按组件选择事项。也可以长按桌面，在小组件列表中找到「记日」。")
+                                Button(
+                                    onClick = {
+                                        showWidgetPicker = false
+                                        pinWidget(CompactDayWidgetProvider::class.java)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { Text("2 × 1 · 轻巧卡片") }
                                 Button(
                                     onClick = {
                                         showWidgetPicker = false

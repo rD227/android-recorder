@@ -23,7 +23,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Both launcher sizes share the same persisted record binding and rendering rules. */
+/** All launcher sizes share the same persisted record binding and rendering rules. */
 abstract class DayWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         appWidgetIds.forEach { DayWidgetUpdates.update(context, it) }
@@ -67,6 +67,8 @@ class SquareDayWidgetProvider : DayWidgetProvider()
 
 class WideDayWidgetProvider : DayWidgetProvider()
 
+class CompactDayWidgetProvider : DayWidgetProvider()
+
 internal class WidgetBindings(context: Context) {
     private val preferences = context.getSharedPreferences("day_widget_bindings", Context.MODE_PRIVATE)
 
@@ -88,6 +90,7 @@ object DayWidgetUpdates {
     private fun providers(context: Context) = listOf(
         ComponentName(context, SquareDayWidgetProvider::class.java),
         ComponentName(context, WideDayWidgetProvider::class.java),
+        ComponentName(context, CompactDayWidgetProvider::class.java),
     )
 
     internal fun isOurWidget(context: Context, widgetId: Int): Boolean {
@@ -111,9 +114,14 @@ object DayWidgetUpdates {
         if (info.provider !in providers(context)) return
         val wide = info.provider.className ==
             WideDayWidgetProvider::class.java.name
+        val compact = info.provider.className == CompactDayWidgetProvider::class.java.name
         val views = RemoteViews(
             context.packageName,
-            if (wide) R.layout.widget_day_wide else R.layout.widget_day_square,
+            when {
+                compact -> R.layout.widget_day_compact
+                wide -> R.layout.widget_day_wide
+                else -> R.layout.widget_day_square
+            },
         )
         val binding = WidgetBindings(context).recordId(widgetId)
         val record = binding?.let { DayRecordStore(context).find(it) }
@@ -146,18 +154,30 @@ object DayWidgetUpdates {
             views.setTextViewText(R.id.widget_date, "始于 ${record.startDate.format(dateFormat)}")
             val options = manager.getAppWidgetOptions(widgetId)
             val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, if (wide) 180 else 110)
-            val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
+            val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, if (compact) 40 else 110)
             val fontScale = context.resources.configuration.fontScale
-            val padding = if (wide) 32f else 24f
-            val headlineSize = if (wide) 14f else 13f
-            val showDate = height >= 150 * fontScale
+            val horizontalPadding = if (compact) 16f else if (wide) 32f else 24f
+            val verticalPadding = if (compact) 4f else horizontalPadding
+            val rowSpacing = if (compact) 1f else 5f
+            val headlineLines = if (compact) 1 else 2
+            // A one-row launcher cell leaves less vertical room than the other two sizes.
+            // Scale both lines together at large system font sizes before fitting the count.
+            val compactScale = if (compact) {
+                minOf(1f, (height - verticalPadding) / ((10f + 18f) * 1.3f * fontScale + rowSpacing))
+            } else 1f
+            val headlineSize = (if (compact) 10f else if (wide) 14f else 13f) * compactScale
+            val unitSize = (if (compact) 12f else if (wide) 16f else 14f) * compactScale
+            val showDate = !compact && height >= 150 * fontScale
             views.setViewVisibility(R.id.widget_date, if (showDate) View.VISIBLE else View.GONE)
-            val availableWidth = width - padding - (if (wide) 16f else 14f) * fontScale - 5f
-            val availableHeight = height - padding - 2 * headlineSize * fontScale * 1.3f - 5f -
+            views.setTextViewTextSize(R.id.widget_headline, TypedValue.COMPLEX_UNIT_SP, headlineSize)
+            views.setTextViewTextSize(R.id.widget_unit, TypedValue.COMPLEX_UNIT_SP, unitSize)
+            val availableWidth = width - horizontalPadding - unitSize * fontScale - 5f
+            val availableHeight = height - verticalPadding - headlineLines * headlineSize * fontScale * 1.3f - rowSpacing -
                 if (showDate) 23 * fontScale else 0f
             val widthLimit = availableWidth / (count.length * 0.62f * fontScale)
             val heightLimit = availableHeight / (1.3f * fontScale)
-            val countSize = minOf(widthLimit, heightLimit, if (wide) 56f else 48f).coerceAtLeast(18f)
+            val fittedCountSize = minOf(widthLimit, heightLimit, if (compact) 30f else if (wide) 56f else 48f)
+            val countSize = if (compact) fittedCountSize else fittedCountSize.coerceAtLeast(18f)
             views.setTextViewTextSize(R.id.widget_count, TypedValue.COMPLEX_UNIT_SP, countSize)
             views.setContentDescription(
                 android.R.id.background,
@@ -167,7 +187,7 @@ object DayWidgetUpdates {
             val title = if (binding == null) "选择一个日子" else "这张卡片已删除"
             views.setTextViewText(R.id.widget_headline, title)
             views.setViewVisibility(R.id.widget_count_row, View.GONE)
-            views.setViewVisibility(R.id.widget_date, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_date, if (compact) View.GONE else View.VISIBLE)
             views.setTextViewText(R.id.widget_date, "点击选择桌面卡片")
             views.setContentDescription(android.R.id.background, "$title，点击选择桌面卡片")
         }

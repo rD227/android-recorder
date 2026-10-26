@@ -45,6 +45,15 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_wide_info" />
         </receiver>
+        <receiver
+            android:name=".widget.CompactDayWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_compact_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_compact_info" />
+        </receiver>
         <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.DATE_CHANGED" />
