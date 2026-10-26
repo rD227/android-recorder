@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <color name="widget_sage">#D8E8D5</color>
+    <color name="widget_on_sage">#223C29</color>
+    <color name="widget_clay">#F3DFD7</color>
+    <color name="widget_on_clay">#62463C</color>
+    <color name="widget_lavender">#E8E3F3</color>
+    <color name="widget_on_lavender">#504561</color>
+    <color name="widget_sand">#F0E8D1</color>
+    <color name="widget_on_sand">#5F5130</color>
+    <color name="widget_dynamic_container" tools:targetApi="s">@android:color/system_accent1_100</color>
+    <color name="widget_dynamic_content" tools:targetApi="s">@android:color/system_accent1_900</color>
+</resources>
