@@ -1,3 +1,4 @@
 <full-backup-content>
     <exclude domain="sharedpref" path="poetry.xml" />
+    <exclude domain="sharedpref" path="widget_pin_request.xml" />
 </full-backup-content>

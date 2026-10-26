@@ -54,6 +54,7 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_compact_info" />
         </receiver>
+        <receiver android:name=".widget.WidgetPinReceiver" android:exported="false" />
         <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.DATE_CHANGED" />
