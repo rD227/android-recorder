@@ -151,4 +151,3 @@ internal fun WidgetPinDialog(
         },
     )
 }
-
