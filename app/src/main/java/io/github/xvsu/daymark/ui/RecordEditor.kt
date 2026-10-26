@@ -1,5 +1,11 @@
 package io.github.xvsu.daymark.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -216,22 +222,31 @@ internal fun RecordEditor(
                 }
                 Text("自定义配色")
             }
-            customColor?.let { selectedColor ->
-                Spacer(Modifier.height(16.dp))
-                CardColorPicker(
-                    hue = hue,
-                    whiteness = whiteness,
-                    color = selectedColor,
-                    previewDays = abs(java.time.temporal.ChronoUnit.DAYS.between(date, today)),
-                    onHueChange = {
-                        hue = it
-                        customColor = customCardColor(hue, whiteness)
-                    },
-                    onWhitenessChange = {
-                        whiteness = it
-                        customColor = customCardColor(hue, whiteness)
-                    },
-                )
+            AnimatedVisibility(
+                visible = customColor != null,
+                enter = expandVertically(animationSpec = tween(240), expandFrom = Alignment.Top) +
+                    fadeIn(animationSpec = tween(180)),
+                exit = shrinkVertically(animationSpec = tween(200), shrinkTowards = Alignment.Top) +
+                    fadeOut(animationSpec = tween(120)),
+            ) {
+                Column {
+                    Spacer(Modifier.height(16.dp))
+                    CardColorPicker(
+                        hue = hue,
+                        whiteness = whiteness,
+                        // Keep the last edited color visible while a preset collapses the picker.
+                        color = customColor ?: customCardColor(hue, whiteness),
+                        previewDays = abs(java.time.temporal.ChronoUnit.DAYS.between(date, today)),
+                        onHueChange = {
+                            hue = it
+                            customColor = customCardColor(hue, whiteness)
+                        },
+                        onWhitenessChange = {
+                            whiteness = it
+                            customColor = customCardColor(hue, whiteness)
+                        },
+                    )
+                }
             }
             Spacer(Modifier.height(30.dp))
             Button(
