@@ -285,7 +285,7 @@ private fun DayRecordCard(
     index: Int,
     onEdit: () -> Unit,
 ) {
-    val colors = cardColors(record.tone)
+    val colors = cardColors(record.tone, record.customColor)
     Card(
         onClick = onEdit,
         modifier = Modifier.fillMaxWidth(),

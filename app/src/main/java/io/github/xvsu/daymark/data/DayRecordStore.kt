@@ -19,6 +19,7 @@ class DayRecordStore(context: Context) {
                 title = entry.getString("title"),
                 startDate = LocalDate.parse(entry.getString("startDate")),
                 tone = CardTone.valueOf(entry.getString("tone")),
+                customColor = readCustomColor(entry),
             )
         }
     }
@@ -44,8 +45,19 @@ class DayRecordStore(context: Context) {
                 put("title", record.title)
                 put("startDate", record.startDate.toString())
                 put("tone", record.tone.name)
+                put("customColor", record.customColor ?: JSONObject.NULL)
             })
         }
         preferences.edit().putString("records", entries.toString()).apply()
+    }
+
+    private fun readCustomColor(entry: JSONObject): Int? {
+        // Older records have no override. Explicit JSON null has the same meaning.
+        if (!entry.has("customColor") || entry.isNull("customColor")) return null
+        val value = entry.get("customColor")
+        require(value is Int || value is Long && value in Int.MIN_VALUE..Int.MAX_VALUE) {
+            "Custom card color must be an ARGB integer"
+        }
+        return (value as Number).toInt()
     }
 }

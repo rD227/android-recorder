@@ -6,16 +6,21 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.xvsu.daymark.R
 import io.github.xvsu.daymark.data.CardTone
+import io.github.xvsu.daymark.data.CustomCardPalette
 import io.github.xvsu.daymark.data.DayRecord
 import io.github.xvsu.daymark.data.DayRecordStore
 import org.junit.Assert.assertEquals
@@ -111,6 +116,9 @@ class DayWidgetIntegrationTest {
                     showsRecord(compactView, compactRecord)
             }
             onMain {
+                layout(squareView, 180, 180)
+                layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
                 assertEquals(squareRecord.id, bindings.recordId(squareId))
                 assertEquals(wideRecord.id, bindings.recordId(wideId))
                 assertEquals(compactRecord.id, bindings.recordId(compactId))
@@ -168,7 +176,10 @@ class DayWidgetIntegrationTest {
                 showsRecord(compactView, editedCompact) && count != null &&
                     count.textSize / context.resources.displayMetrics.scaledDensity < 18f
             }
-            onMain { assertCompactTextFits(compactView) }
+            onMain {
+                layout(compactView, 110, 40)
+                assertCompactTextFits(compactView)
+            }
 
             manager.updateAppWidgetOptions(compactId, widgetOptions(180, 72))
             DayWidgetUpdates.update(context, compactId)
@@ -178,7 +189,91 @@ class DayWidgetIntegrationTest {
                 showsRecord(compactView, editedCompact) && count != null &&
                     count.textSize / context.resources.displayMetrics.scaledDensity > 18f
             }
+
+            val customSquare = editedSquare.copy(customColor = 0xFF183C55.toInt())
+            val customWide = wideRecord.copy(customColor = 0xFFF7BE67.toInt())
+            val customCompact = editedCompact.copy(customColor = 0xFF4F153D.toInt())
+            val sageBackground = context.getColor(
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) R.color.widget_dynamic_container else R.color.widget_sage,
+            )
+            val sageForeground = context.getColor(
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) R.color.widget_dynamic_content else R.color.widget_on_sage,
+            )
+            store.save(customSquare)
+            DayWidgetUpdates.updateAll(context)
+            awaitView("A custom color must only affect the widget bound to its record") {
+                layout(squareView, 180, 180)
+                layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
+                customColorsMatch(squareView, customSquare.customColor!!) &&
+                    widgetColorsMatch(wideView, sageBackground, sageForeground) &&
+                    widgetColorsMatch(
+                        compactView, context.getColor(R.color.widget_lavender), context.getColor(R.color.widget_on_lavender),
+                    )
+            }
+
+            store.save(customWide)
+            store.save(customCompact)
+            DayWidgetUpdates.updateAll(context)
+            awaitView("All widget sizes must display custom backgrounds and readable text") {
+                layout(squareView, 180, 180)
+                layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
+                customColorsMatch(squareView, customSquare.customColor!!) &&
+                    customColorsMatch(wideView, customWide.customColor!!) &&
+                    customColorsMatch(compactView, customCompact.customColor!!)
+            }
+
+            // A newly pinned widget may have explicit zero options until its launcher measures it.
+            // It must render at the provider minimum, including a nonzero legacy bitmap background.
+            manager.updateAppWidgetOptions(compactId, widgetOptions(0, 0))
+            DayWidgetUpdates.update(context, compactId)
+            awaitView("Zero launcher options must render the declared minimum size") {
+                layout(compactView, 110, 40)
+                val count = compactView.findViewById<TextView>(R.id.widget_count)
+                customColorsMatch(compactView, customCompact.customColor!!) && count.textSize > 0 &&
+                    count.textSize / context.resources.displayMetrics.scaledDensity < 18f
+            }
             onMain {
+                layout(compactView, 110, 40)
+                assertCompactTextFits(compactView)
+            }
+            manager.updateAppWidgetOptions(compactId, widgetOptions(180, 72))
+            DayWidgetUpdates.update(context, compactId)
+            awaitView("Measured launcher options must replace the initial minimum typography") {
+                layout(compactView, 180, 72)
+                val count = compactView.findViewById<TextView>(R.id.widget_count)
+                customColorsMatch(compactView, customCompact.customColor!!) &&
+                    count.textSize / context.resources.displayMetrics.scaledDensity > 18f
+            }
+            onMain {
+                layout(squareView, 180, 180)
+                layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
+                assertCompactTextFits(compactView)
+                savePreview(squareView, "widget-custom-square-integration.png")
+                savePreview(wideView, "widget-custom-wide-integration.png")
+                savePreview(compactView, "widget-custom-compact-integration.png")
+            }
+
+            store.save(editedSquare)
+            store.save(wideRecord)
+            store.save(editedCompact)
+            DayWidgetUpdates.updateAll(context)
+            awaitView("Returning to presets must clear custom backgrounds and restore every text color") {
+                layout(squareView, 180, 180)
+                layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
+                widgetColorsMatch(
+                    squareView, context.getColor(R.color.widget_clay), context.getColor(R.color.widget_on_clay),
+                ) && widgetColorsMatch(wideView, sageBackground, sageForeground) && widgetColorsMatch(
+                    compactView, context.getColor(R.color.widget_lavender), context.getColor(R.color.widget_on_lavender),
+                )
+            }
+            onMain {
+                layout(squareView, 180, 180)
+                layout(wideView, 270, 180)
+                layout(compactView, 180, 72)
                 assertCompactTextFits(compactView)
                 savePreview(squareView, "widget-square-integration.png")
                 savePreview(wideView, "widget-wide-integration.png")
@@ -246,6 +341,33 @@ class DayWidgetIntegrationTest {
 
     private fun text(view: View, id: Int): String? = view.findViewById<TextView>(id)?.text?.toString()
 
+    private fun customColorsMatch(view: AppWidgetHostView, background: Int) =
+        widgetColorsMatch(view, background, CustomCardPalette.textColor(background), custom = true)
+
+    private fun widgetColorsMatch(
+        view: AppWidgetHostView,
+        background: Int,
+        foreground: Int,
+        custom: Boolean = false,
+    ): Boolean {
+        val card = view.findViewById<View>(android.R.id.background)
+        val image = view.findViewById<ImageView>(R.id.widget_custom_background)
+        val backgroundMatches = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            image.visibility == View.GONE && card.backgroundTintList?.defaultColor == background
+        } else if (custom) {
+            val bitmap = (image.drawable as? BitmapDrawable)?.bitmap
+            image.visibility == View.VISIBLE && bitmap != null &&
+                bitmap.getPixel(bitmap.width / 2, bitmap.height / 2) == background &&
+                Color.alpha(bitmap.getPixel(0, 0)) == 0
+        } else {
+            image.visibility == View.GONE && image.drawable == null &&
+                (card.background as? GradientDrawable)?.color?.defaultColor == background
+        }
+        return backgroundMatches &&
+            listOf(R.id.widget_headline, R.id.widget_count, R.id.widget_unit, R.id.widget_date)
+                .all { view.findViewById<TextView>(it).currentTextColor == foreground }
+    }
+
     /** Call only on the main thread, as a launcher would measure its hosted views. */
     private fun layout(view: View, widthDp: Int, heightDp: Int) {
         val density = context.resources.displayMetrics.density
@@ -259,14 +381,14 @@ class DayWidgetIntegrationTest {
     }
 
     private fun assertCompactTextFits(view: AppWidgetHostView) {
-        val background = view.findViewById<View>(android.R.id.background)
+        val content = view.findViewById<View>(R.id.widget_content)
         assertEquals(View.GONE, view.findViewById<View>(R.id.widget_date).visibility)
         val title = view.findViewById<TextView>(R.id.widget_headline)
         val row = view.findViewById<View>(R.id.widget_count_row)
-        assertTrue("The compact title must stay inside the card", title.top >= background.paddingTop)
+        assertTrue("The compact title must stay inside the card", title.top >= content.paddingTop)
         assertTrue(
             "The compact count row must stay inside the card",
-            row.bottom <= background.height - background.paddingBottom,
+            row.bottom <= content.height - content.paddingBottom,
         )
         listOf(R.id.widget_headline, R.id.widget_count, R.id.widget_unit).forEach { id ->
             val textView = view.findViewById<TextView>(id)

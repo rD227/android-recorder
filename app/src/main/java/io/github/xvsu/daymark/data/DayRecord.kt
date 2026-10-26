@@ -12,11 +12,15 @@ data class DayRecord(
     val title: String,
     val startDate: LocalDate,
     val tone: CardTone = CardTone.SAGE,
+    val customColor: Int? = null,
 ) {
     init {
         require(id.isNotBlank()) { "Record ID must not be blank" }
         require(title.isNotBlank() && title == title.trim() && title.length <= 40) {
             "Title must be trimmed and contain 1–40 characters"
+        }
+        require(customColor == null || customColor ushr 24 == 0xFF) {
+            "Custom card color must be opaque"
         }
     }
 

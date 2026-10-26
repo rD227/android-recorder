@@ -121,7 +121,7 @@ class WidgetConfigureActivity : ComponentActivity() {
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
                                 items(records, key = { it.id }) { record ->
-                                    val colors = cardColors(record.tone)
+                                    val colors = cardColors(record.tone, record.customColor)
                                     val today = LocalDate.now()
                                     Card(
                                         onClick = { selectRecord(record.id) },

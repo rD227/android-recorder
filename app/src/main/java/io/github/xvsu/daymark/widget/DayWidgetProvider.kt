@@ -8,6 +8,11 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -17,11 +22,13 @@ import android.widget.RemoteViews
 import io.github.xvsu.daymark.MainActivity
 import io.github.xvsu.daymark.R
 import io.github.xvsu.daymark.data.CardTone
+import io.github.xvsu.daymark.data.CustomCardPalette
 import io.github.xvsu.daymark.data.DayRecordStore
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** All launcher sizes share the same persisted record binding and rendering rules. */
 abstract class DayWidgetProvider : AppWidgetProvider() {
@@ -126,9 +133,39 @@ object DayWidgetUpdates {
         val binding = WidgetBindings(context).recordId(widgetId)
         val record = binding?.let { DayRecordStore(context).find(it) }
         val today = LocalDate.now()
+        val options = manager.getAppWidgetOptions(widgetId)
+        // A pin callback can arrive before the launcher measures the card, with explicit zero
+        // options. Start at the provider's declared minimum; optionsChanged supplies the real size.
+        // AppWidgetManager resolves the provider's XML dimensions to pixels, while options use dp.
+        val density = context.resources.displayMetrics.density
+        val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).takeIf { it > 0 }
+            ?: (info.minWidth / density).roundToInt()
+        val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT).takeIf { it > 0 }
+            ?: (info.minHeight / density).roundToInt()
         val colors = widgetColors(record?.tone ?: CardTone.SAGE)
+        val customColor = record?.customColor
         views.setInt(android.R.id.background, "setBackgroundResource", colors.backgroundResource)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (customColor != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // Older RemoteViews cannot set a literal ColorStateList. A background-only bitmap
+            // preserves the same 28 dp corners without turning the card into a rectangle.
+            views.setInt(android.R.id.background, "setBackgroundResource", 0)
+            views.setImageViewBitmap(
+                R.id.widget_custom_background,
+                customWidgetBackground(context, customColor, width, height),
+            )
+            views.setViewVisibility(R.id.widget_custom_background, View.VISIBLE)
+        } else {
+            // RemoteViews may reapply to an existing card, so discard the old bitmap as well.
+            views.setViewVisibility(R.id.widget_custom_background, View.GONE)
+            views.setImageViewResource(R.id.widget_custom_background, 0)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && customColor != null) {
+            views.setColorStateList(
+                android.R.id.background,
+                "setBackgroundTintList",
+                ColorStateList.valueOf(customColor),
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Resource IDs resolve when the launcher applies the views, including night mode
             // and wallpaper colors. Tint every tone so switching away from SAGE resets it.
             views.setColorStateList(
@@ -139,7 +176,9 @@ object DayWidgetUpdates {
         }
         listOf(R.id.widget_headline, R.id.widget_count, R.id.widget_unit, R.id.widget_date)
             .forEach {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (customColor != null) {
+                    views.setTextColor(it, CustomCardPalette.textColor(customColor))
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     views.setColor(it, "setTextColor", colors.foreground)
                 } else {
                     views.setTextColor(it, context.getColor(colors.foreground))
@@ -152,9 +191,6 @@ object DayWidgetUpdates {
             views.setTextViewText(R.id.widget_count, count)
             views.setViewVisibility(R.id.widget_count_row, View.VISIBLE)
             views.setTextViewText(R.id.widget_date, "始于 ${record.startDate.format(dateFormat)}")
-            val options = manager.getAppWidgetOptions(widgetId)
-            val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, if (wide) 180 else 110)
-            val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, if (compact) 40 else 110)
             val fontScale = context.resources.configuration.fontScale
             val horizontalPadding = if (compact) 16f else if (wide) 32f else 24f
             val verticalPadding = if (compact) 4f else horizontalPadding
@@ -243,6 +279,17 @@ object DayWidgetUpdates {
         Intent.ACTION_BOOT_COMPLETED,
         Intent.ACTION_MY_PACKAGE_REPLACED,
     )
+}
+
+private fun customWidgetBackground(context: Context, color: Int, widthDp: Int, heightDp: Int): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val width = (widthDp * density).roundToInt()
+    val height = (heightDp * density).roundToInt()
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val radius = 28 * density
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+    Canvas(bitmap).drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, paint)
+    return bitmap
 }
 
 class WidgetRefreshReceiver : BroadcastReceiver() {

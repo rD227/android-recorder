@@ -5,11 +5,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import io.github.xvsu.daymark.data.CardTone
+import io.github.xvsu.daymark.data.CustomCardPalette
 
 internal data class DayCardColors(val container: Color, val content: Color)
 
 @Composable
-internal fun cardColors(tone: CardTone): DayCardColors {
+internal fun cardColors(tone: CardTone, customColor: Int? = null): DayCardColors {
+    if (customColor != null) {
+        return DayCardColors(Color(customColor), Color(CustomCardPalette.textColor(customColor)))
+    }
     val dark = isSystemInDarkTheme()
     return when (tone) {
         CardTone.SAGE -> DayCardColors(

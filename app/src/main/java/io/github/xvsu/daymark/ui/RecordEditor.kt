@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,12 +42,15 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +63,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import kotlin.math.abs
 
 private val EditorDateFormat = DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.CHINA)
 
@@ -74,6 +79,14 @@ internal fun RecordEditor(
     var title by rememberSaveable(record?.id) { mutableStateOf(record?.title.orEmpty()) }
     var dateEpochDay by rememberSaveable(record?.id) { mutableStateOf((record?.startDate ?: today).toEpochDay()) }
     var toneName by rememberSaveable(record?.id) { mutableStateOf((record?.tone ?: CardTone.SAGE).name) }
+    var customColor by rememberSaveable(record?.id) { mutableStateOf(record?.customColor) }
+    val initialHsv = remember(record?.id) {
+        FloatArray(3).also {
+            android.graphics.Color.colorToHSV(record?.customColor ?: customCardColor(210f, 0.72f), it)
+        }
+    }
+    var hue by rememberSaveable(record?.id) { mutableStateOf(initialHsv[0]) }
+    var whiteness by rememberSaveable(record?.id) { mutableStateOf(1f - initialHsv[1]) }
     var datePickerOpen by rememberSaveable { mutableStateOf(false) }
     val date = LocalDate.ofEpochDay(dateEpochDay)
     val tone = CardTone.valueOf(toneName)
@@ -178,11 +191,47 @@ internal fun RecordEditor(
                 CardTone.entries.forEach { option ->
                     ToneOption(
                         tone = option,
-                        selected = tone == option,
-                        onClick = { toneName = option.name },
+                        selected = customColor == null && tone == option,
+                        onClick = {
+                            toneName = option.name
+                            customColor = null
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 }
+            }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { customColor = customCardColor(hue, whiteness) },
+                modifier = Modifier.fillMaxWidth().semantics { selected = customColor != null },
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (customColor != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                ),
+            ) {
+                if (customColor != null) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                }
+                Text("自定义配色")
+            }
+            customColor?.let { selectedColor ->
+                Spacer(Modifier.height(16.dp))
+                CardColorPicker(
+                    hue = hue,
+                    whiteness = whiteness,
+                    color = selectedColor,
+                    previewDays = abs(java.time.temporal.ChronoUnit.DAYS.between(date, today)),
+                    onHueChange = {
+                        hue = it
+                        customColor = customCardColor(hue, whiteness)
+                    },
+                    onWhitenessChange = {
+                        whiteness = it
+                        customColor = customCardColor(hue, whiteness)
+                    },
+                )
             }
             Spacer(Modifier.height(30.dp))
             Button(
@@ -194,6 +243,7 @@ internal fun RecordEditor(
                         title = trimmedTitle,
                         startDate = date,
                         tone = tone,
+                        customColor = customColor,
                     ))
                 },
                 modifier = Modifier.fillMaxWidth(),
